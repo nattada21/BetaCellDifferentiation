@@ -6,6 +6,13 @@
    - Original Protocol: ​​https://protocolexchange.researchsquare.com/article/pex-1301/v1 
 3. Pre-Processing
 4. Seurat
-5. Cell Type Annotation
-6. NMF
-7. Homer
+   - Run Seurat script using the matrix file to create the Seurat object
+   - Adjust script as needed
+   - Save seurat object as .RDS after
+   - Link to Seurat Manual: https://satijalab.org/seurat/articles/pbmc3k_tutorial
+   - Installation: https://satijalab.org/seurat/articles/install_v5 
+6. Cell Type Annotation
+7. NMF
+8. Homer
+9. GREAT Go Term Enrichment Analysis
+10. ChromHMM
