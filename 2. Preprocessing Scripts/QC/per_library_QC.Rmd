@@ -1,0 +1,285 @@
+---
+title: "Paired-Tag QC Report"
+author: ''
+date: ''
+output:
+  html_document: default
+params:
+  dna.id: dna.id
+  rna.id: rna.id
+  genome: genome
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(png)
+library(Matrix)
+path="../"
+#path="/projects/ren-transposon/home/chz272/transposon/16.MAMO/02.2021_04_29_H3K9me3_H3K4me1_NS"
+#dna.id="CZ834"
+#rna.id="CZ842"
+#genome="mm10"
+dna.id=params$dna.id
+rna.id=params$rna.id
+genome=params$genome
+
+fastq.exists=file.exists(paste(path,"/01.rawdata/",dna.id,"_R1_fastqc.zip",sep="")) && file.exists(paste(path,"/01.rawdata/",rna.id,"_R1_fastqc.zip",sep=""))
+pre_proc_log.exists=file.exists(paste(path,"/log/", dna.id, "_qc.log", sep="")) && file.exists(paste(path,"/log/", rna.id, "_qc.log", sep=""))
+mapping.exists = file.exists(paste(path,"/03.",genome,"_mapping/", dna.id,"_",genome, "_sorted_rmdup.bam", sep="")) && file.exists(paste(path,"/03.",genome,"_mapping/", rna.id,"_",genome,"_sorted_rmdup.bam", sep=""))
+matrix.exists = file.exists(paste(path,"/04.matrices/", dna.id,"_",genome, "_sorted_rmdup_mtx2/matrix.mtx", sep="")) && file.exists(paste(path,"/04.matrices/", rna.id,"_",genome, "_sorted_rmdup_mtx2/matrix.mtx", sep=""))
+
+```
+
+Per sub-library report for Paired-Tag datasets.
+
+### Library ID
+> DNA: `r dna.id` \
+> RNA: `r rna.id`
+> \
+> FastQC finished: `r fastq.exists` \
+> Preprocess finished: `r pre_proc_log.exists` \
+> Mapping finished: `r mapping.exists` \
+> Matrix generated: `r matrix.exists` 
+
+\
+```{r seq_summary, echo=FALSE}
+total_read = 0
+assigned_read = 0
+valid_read = 0
+frac = 0
+f=0
+rtotal_read = 0
+rassigned_read = 0
+rvalid_read = 0
+rfrac = 0
+rf=0
+
+if(pre_proc_log.exists){
+  data=read.csv(paste(path,"/log/", dna.id, "_qc.log", sep=""), sep="\t", head=F)
+  d1=dim(data)[1];d2=dim(data)[2]
+  valid_reads<-as.vector(data[d1,1]);valid_reads<-as.integer(unlist(strsplit(valid_reads, " "))[1])
+  assigned_reads<-as.vector(data[d1-1,1]);assigned_reads<-as.integer(unlist(strsplit(assigned_reads, " "))[1])
+  total_raw=as.integer(as.vector(data[d1-7,d2]))
+  total_read = total_raw
+  valid_read = valid_reads
+  assigned_read = assigned_reads
+  frac = as.integer(valid_read/assigned_read*10000)/100
+  frac = paste(frac, "%", sep="")
+  f = as.integer(assigned_read/total_read*10000)/100
+  f = paste(f, "%", sep="")
+  data=read.csv(paste(path,"/log/", rna.id, "_qc.log", sep=""), sep="\t", head=F)
+  d1=dim(data)[1];d2=dim(data)[2]
+  valid_reads<-as.vector(data[d1,1]);valid_reads<-as.integer(unlist(strsplit(valid_reads, " "))[1])
+  assigned_reads<-as.vector(data[d1-1,1]);assigned_reads<-as.integer(unlist(strsplit(assigned_reads, " "))[1])
+  total_raw=as.integer(as.vector(data[d1-7,d2]))
+  rtotal_read = total_raw
+  rvalid_read = valid_reads
+  rassigned_read = assigned_reads
+  rfrac = as.integer(rvalid_read/rassigned_read*10000)/100
+  rfrac = paste(rfrac, "%", sep="")
+  rf = as.integer(rassigned_read/rtotal_read*10000)/100
+  rf = paste(rf, "%", sep="")
+}
+
+dna_reads_unique=0
+dna_reads_all=0
+dna_mapping_rates=0
+dna_dup_rates=0
+rna_reads_unique=0
+rna_reads_all=0
+rna_mapping_rates=0
+rna_dup_rates=0
+
+if(mapping.exists){
+  bam=paste(path,"/03.",genome,"_mapping/", dna.id,"_",genome, "_sorted_rmdup.bam", sep="")
+  out<-system(paste("samtools flagstat ", bam, sep=""), intern=T)
+  dna_reads_unique <- as.integer(unlist(strsplit(out[1], " "))[1])
+  bam=paste(path,"/03.",genome,"_mapping/", dna.id,"_",genome, "_sorted.bam", sep="")
+  out<-system(paste("samtools flagstat ", bam, sep=""), intern=T)
+  dna_reads_all <- as.integer(unlist(strsplit(out[1], " "))[1])
+  bam=paste(path,"/03.",genome,"_mapping/", rna.id,"_",genome, "_sorted_rmdup.bam", sep="")
+  out<-system(paste("samtools flagstat ", bam, sep=""), intern=T)
+  rna_reads_unique <- as.integer(unlist(strsplit(out[1], " "))[1])
+  bam=paste(path,"/03.",genome,"_mapping/", rna.id,"_",genome, "_sorted.bam", sep="")
+  out<-system(paste("samtools flagstat ", bam, sep=""), intern=T)
+  rna_reads_all <- as.integer(unlist(strsplit(out[1], " "))[1])
+  dna_mapping_rates <- paste(as.integer(dna_reads_all*10000/valid_read)/100, "%", sep="")
+  rna_mapping_rates <- paste(as.integer(rna_reads_all*10000/rvalid_read)/100, "%", sep="")
+  dna_dup_rates <- paste((100-as.integer(dna_reads_unique*10000/dna_reads_all)/100), "%", sep="")
+  rna_dup_rates <- paste((100-as.integer(rna_reads_unique*10000/rna_reads_all)/100), "%", sep="")
+}
+```
+
+### Sequencing summary
+
+|     |DNA   |RNA   |
+| --- |----  | ---- |
+|Total raw reads|`r total_read`|`r rtotal_read`|
+|Reads with full barcodes|`r assigned_read`|`r rassigned_read`|
+|Frac with full barcodes|`r f`|`r rf`|
+|Reads assigned|`r valid_read`|`r rvalid_read`|
+|Frac assigned|`r frac`|`r rfrac`|
+|Mapped reads|`r dna_reads_all`|`r rna_reads_all`|
+|Mapping rates|`r dna_mapping_rates`|`r rna_mapping_rates`|
+|Unique reads|`r dna_reads_unique`|`r rna_reads_unique`|
+|Duplication rates|`r dna_dup_rates`|`r rna_dup_rates`|
+
+
+\
+
+### FastQC reports
+#### DNA
+
+```{r fastqc plot, echo=FALSE, fig.width=18, fig.height=9}
+
+zip.path=paste(path,"/01.rawdata/",dna.id,"_R1_fastqc.zip",sep="")
+image.path=paste(dna.id,"_R1_fastqc/Images/per_base_sequence_content.png",sep="")
+dna.read1.base_content=readPNG(unzip(zip.path, image.path))
+image.path=paste(dna.id,"_R1_fastqc/Images/adapter_content.png",sep="")
+dna.read1.adpt=readPNG(unzip(zip.path, image.path))
+image.path=paste(dna.id,"_R1_fastqc/Images/duplication_levels.png",sep="")
+dna.read1.dup=readPNG(unzip(zip.path, image.path))
+
+zip.path=paste(path,"/01.rawdata/",dna.id,"_R2_fastqc.zip",sep="")
+image.path=paste(dna.id,"_R2_fastqc/Images/per_base_sequence_content.png",sep="")
+dna.read2.base_content=readPNG(unzip(zip.path, image.path))
+image.path=paste(dna.id,"_R2_fastqc/Images/adapter_content.png",sep="")
+dna.read2.adpt=readPNG(unzip(zip.path, image.path))
+image.path=paste(dna.id,"_R2_fastqc/Images/duplication_levels.png",sep="")
+dna.read2.dup=readPNG(unzip(zip.path, image.path))
+## read1 base content       read2 base content
+## read1 dup rate           read2 dup rate
+## read1 adaptor cont       read2 adaptor cont
+
+zip.path=paste(path,"/01.rawdata/",rna.id,"_R1_fastqc.zip",sep="")
+image.path=paste(rna.id,"_R1_fastqc/Images/per_base_sequence_content.png",sep="")
+rna.read1.base_content=readPNG(unzip(zip.path, image.path))
+image.path=paste(rna.id,"_R1_fastqc/Images/adapter_content.png",sep="")
+rna.read1.adpt=readPNG(unzip(zip.path, image.path))
+image.path=paste(rna.id,"_R1_fastqc/Images/duplication_levels.png",sep="")
+rna.read1.dup=readPNG(unzip(zip.path, image.path))
+
+zip.path=paste(path,"/01.rawdata/",rna.id,"_R2_fastqc.zip",sep="")
+image.path=paste(rna.id,"_R2_fastqc/Images/per_base_sequence_content.png",sep="")
+rna.read2.base_content=readPNG(unzip(zip.path, image.path))
+image.path=paste(rna.id,"_R2_fastqc/Images/adapter_content.png",sep="")
+rna.read2.adpt=readPNG(unzip(zip.path, image.path))
+image.path=paste(rna.id,"_R2_fastqc/Images/duplication_levels.png",sep="")
+rna.read2.dup=readPNG(unzip(zip.path, image.path))
+
+par(mfrow=c(2,3), mar=c(0,0,1,0))
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read1 Base Content (DNA)");rasterImage(dna.read1.base_content, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read1 Adaptor Content (DNA)");rasterImage(dna.read1.adpt, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read1 Duplication Estimate (DNA)");rasterImage(dna.read1.dup, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read2 Base Content (DNA)");rasterImage(dna.read2.base_content, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read2 Adaptor Estimate (DNA)");rasterImage(dna.read2.adpt, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read2 Duplication Estimate (DNA)");rasterImage(dna.read2.dup, 1,1,10,10)
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,3), mar=c(0,0,1,0))
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read1 Base Content (RNA)");rasterImage(rna.read1.base_content, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read1 Adaptor Content (RNA)");rasterImage(rna.read1.adpt, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read1 Duplication Estimate (RNA)");rasterImage(rna.read1.dup, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read2 Base Content (RNA)");rasterImage(rna.read2.base_content, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read2 Adaptor Estimate (RNA)");rasterImage(rna.read2.adpt, 1,1,10,10)
+plot(1:10, ty="n", bty="n", axes = F, xlab=NA, ylab=NA, main="Read2 Duplication Estimate (RNA)");rasterImage(rna.read2.dup, 1,1,10,10)
+par(mfrow=c(1,1))
+ 
+```
+\
+
+### Library size reports
+
+```{r library_size, echo=FALSE, fig.width=12, fig.height=8}
+n_cell_dna = 0
+n_cell_rna = 0
+n_cell_valid = 0
+f_cell_valid = 0
+med_UMI_RNA = 0
+med_gene_RNA = 0
+med_frag_DNA = 0
+med_feature_DNA = 0
+DNA_UMI_cutoff = 0
+RNA_UMI_cutoff = 0
+
+
+if(matrix.exists){
+  dna.mat<-readMM(paste(path,"/04.matrices/", dna.id,"_",genome, "_sorted_rmdup_mtx2/matrix.mtx", sep=""))
+  dna.bc<-read.csv(paste(path,"/04.matrices/", dna.id,"_",genome, "_sorted_rmdup_mtx2/barcodes.tsv", sep=""), sep="\t", head=F)
+  rna.mat<-readMM(paste(path,"/04.matrices/", rna.id,"_",genome, "_sorted_rmdup_mtx2/matrix.mtx", sep=""))
+  rna.bc<-read.csv(paste(path,"/04.matrices/", rna.id,"_",genome, "_sorted_rmdup_mtx2/barcodes.tsv", sep=""), sep="\t", head=F)
+  colnames(dna.mat)<-dna.bc[,1];colnames(rna.mat)<-rna.bc[,1]
+  dna.counts<-colSums(dna.mat);rna.counts<-colSums(rna.mat)
+  dna.mat@x[dna.mat@x>1]<-1
+  rna.mat@x[rna.mat@x>1]<-1
+  dna.f.counts<-colSums(dna.mat);rna.f.counts<-colSums(rna.mat)
+  rm(dna.mat);rm(rna.mat);gc()
+  names(dna.f.counts)<-dna.bc[,1];names(rna.f.counts)<-rna.bc[,1]
+  m<-merge(dna.counts, rna.counts, by=0)
+  get.elbow.points.indices <- function(x, y, threshold) {
+    d1 <- diff(y) / diff(x) # first derivative
+    d2 <- diff(d1) / diff(x[-1]) # second derivative
+    indices <- which(abs(d2) > threshold)  
+    return(indices)
+  }
+  s1=1000;s2=20000
+  d.sort<-rev(sort(m[,2]))
+  d.sort.subset<-d.sort[s1:s2]
+  x<-get.elbow.points.indices(c(1:length(d.sort.subset)), log10(d.sort.subset), 0.0005);x<-max(median(x),mean(x))
+  DNA_UMI_cutoff<-d.sort[x[1]+s1-1]
+  r.sort<-rev(sort(m[,3]))
+  r.sort.subset<-r.sort[s1:s2]
+  x<-get.elbow.points.indices(c(1:length(r.sort.subset)), log10(r.sort.subset), 0.0005);x<-max(median(x),mean(x))
+  RNA_UMI_cutoff<-r.sort[x[1]+s1-1]
+  layout(matrix(c(1,1,3,3,3,3,1,1,3,3,3,3,2,2,3,3,3,3,2,2,3,3,3,3), 4,6, byrow = T))
+  plot(d.sort, pch=19, cex=0.25, log="xy", xlab="# of barcodes (DNA)", ylab="# of unique fragments (DNA) per nuclei", col="grey"); points(d.sort[d.sort>DNA_UMI_cutoff], pch=19, cex=0.5, col="red")
+  f_reads_dna <- as.integer(sum(d.sort[d.sort>DNA_UMI_cutoff])/sum(d.sort) * 10000) / 100;f_reads_dna<-paste(f_reads_dna, "%", sep="")
+  legend("bottomleft", bty="n", legend=c(paste("Cutoff:", DNA_UMI_cutoff, sep=" "), paste("Median#:", median(d.sort[d.sort>DNA_UMI_cutoff]), sep=" "), paste("Frac Reads:",f_reads_dna, sep=" ")))
+  plot(r.sort, pch=19, cex=0.25, log="xy", xlab="# of barcodes (RNA)", ylab="# of UMI (DNA) per nuclei", col="grey"); points(r.sort[r.sort>RNA_UMI_cutoff], pch=19, cex=0.5, col="red")
+  f_reads_rna <- as.integer(sum(r.sort[r.sort>RNA_UMI_cutoff])/sum(r.sort) * 10000) / 100;f_reads_rna<-paste(f_reads_rna, "%", sep="")
+  legend("bottomleft", bty="n", legend=c(paste("Cutoff:", RNA_UMI_cutoff, sep=" "), paste("Median#:", median(r.sort[r.sort>RNA_UMI_cutoff]), sep=" "), paste("Frac Reads:",f_reads_rna, sep=" ")))  
+  n_cell_dna <- length(d.sort[d.sort>DNA_UMI_cutoff]);n_cell_rna<-length(r.sort[r.sort>RNA_UMI_cutoff])
+  m_filt<-m[m[,2]>DNA_UMI_cutoff & m[,3]>RNA_UMI_cutoff,]
+  plot(m[,2:3], pch=19, cex=0.25, col="grey", log="xy");points(m_filt[,2:3], pch=19, cex=0.25, col="red");lines(c(DNA_UMI_cutoff, DNA_UMI_cutoff), c(1,100000), lwd=2, lty=2, col="grey");lines(c(DNA_UMI_cutoff, DNA_UMI_cutoff), c(1,100000), lwd=1, lty=2, col="grey");lines(c(1,1000000), c(RNA_UMI_cutoff, RNA_UMI_cutoff), lwd=1, lty=2, col="grey")
+  n_cell_valid <- dim(m_filt)[1];quadrant2<-dim(m[m[,2]<DNA_UMI_cutoff & m[,3]>RNA_UMI_cutoff,])[1];quadrant4<-dim(m[m[,2]>DNA_UMI_cutoff & m[,3]<RNA_UMI_cutoff,])[1]
+  legend("topleft", bty="n", legend=c(paste("n = ", quadrant2)));legend("bottomright", bty="n", legend=c(paste("n = ", quadrant4)));legend("topright", bty="n", legend=c(paste("n = ", n_cell_valid)))
+  med_UMI_RNA<-median(m_filt[,3]);med_frag_DNA<-median(m_filt[,2])
+  med_gene_RNA<-median(rna.f.counts[as.vector(m_filt[,1])]);med_feature_DNA<-median(dna.f.counts[as.vector(m_filt[,1])])
+  f1<-as.integer(n_cell_valid / n_cell_dna * 10000) / 100;f2<-as.integer(n_cell_valid / n_cell_rna * 10000) / 100
+  f_cell_valid <- paste(f2, "% for RNA; and ",f1,"% for DNA", sep="")
+  write.table(m_filt[,1], sep="\t", quote=F, col.names=F, row.names=F, file=paste("Valid_Cells_", dna.id, "_", rna.id, ".xls", sep=""))
+  out<-c(total_read, rtotal_read,assigned_read, rassigned_read, f, rf,valid_read, rvalid_read, frac, rfrac, dna_reads_all, rna_reads_all, dna_mapping_rates, rna_mapping_rates, dna_reads_unique, rna_reads_unique, dna_dup_rates, rna_dup_rates, n_cell_dna, n_cell_rna, n_cell_valid, RNA_UMI_cutoff, DNA_UMI_cutoff, med_UMI_RNA, med_gene_RNA, med_frag_DNA, med_feature_DNA)
+  write.table(out, col.names=F, row.names=T, sep="\t", quote=F, file=paste("QC_Summary_", dna.id, "_", rna.id, ".xls", sep=""))
+}
+
+```
+
+### Summary of this sub-library
+
+|Description|Value|
+|---|---|
+|# of cells with PF DNA profile:|`r n_cell_dna`|
+|# of cells with PF RNA profile:|`r n_cell_rna`|
+|# of cells with PF Paired profiles:|`r n_cell_valid`|
+|% of cells with PF Paired profiles:|`r f_cell_valid`|
+|Cutoff for RNA:|`r RNA_UMI_cutoff`|
+|Cutoff for DNA:|`r DNA_UMI_cutoff`|
+|Median # UMI per nuclei:|`r med_UMI_RNA`|
+|Median # genes per nuclei:|`r med_gene_RNA`|
+|Median # fragments per nuclei:|`r med_frag_DNA`|
+|Median # features per nuclei:|`r med_feature_DNA`|
+
+
+[Back to summary page.](./Paired-Tag_project_summary.html)
+
+
+
