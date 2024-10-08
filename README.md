@@ -8,7 +8,7 @@
    - Original Preprocessing Pipeline: https://github.com/cxzhu/Paired-Tag/?tab=readme-ov-file
      1. QC
         - [ ] Create working directory
-        - [ ] Create directory named “01.rawdata” in working directory and add raw fasta files
+        - [ ] Create directory named “01.rawdata” in working directory and add raw fastq files
         - [ ] Have Paired Tag Pre-processing scripts in the working directory
         - [ ] You will have to edit the scripts to include the path to your references and DNA/RNA pairs
         - [ ] First run fastqc in the "01.rawdata" directory
